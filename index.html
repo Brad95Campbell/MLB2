@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>⚡ Dupe Seller — MLB The Show 26</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ── Reset & Variables ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #080a0f;
+      --surface:  #0f1219;
+      --surface2: #171c27;
+      --surface3: #1e2535;
+      --border:   #252d3f;
+      --border2:  #2e3850;
+      --accent:   #f0c040;
+      --accent2:  #3d9be0;
+      --green:    #3dcc6e;
+      --red:      #e05050;
+      --text:     #dde2ef;
+      --muted:    #5a6480;
+      --diamond:  #a8edff;
+      --gold:     #ffd060;
+      --silver:   #c8d0e0;
+      --bronze:   #d08850;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ── Layout ── */
+    .app {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 16px 40px;
+    }
+
+    /* ── Header ── */
+    .header {
+      padding: 28px 0 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .logo {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .logo-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    .logo-main {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--accent);
+      letter-spacing: -1px;
+    }
+
+    .logo-main span { color: var(--text); }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .status-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+    .status-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 20px;
+      background: var(--surface);
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .tab {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      background: none;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-transform: uppercase;
+    }
+
+    .tab.active {
+      background: var(--surface3);
+      color: var(--accent);
+      border: 1px solid var(--border2);
+    }
+
+    /* ── Bookmarklet card ── */
+    .bookmarklet-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .bookmarklet-card.has-data {
+      border-color: var(--green);
+      background: rgba(61, 204, 110, 0.04);
+    }
+
+    .bm-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .bm-step {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--surface3);
+      border: 1px solid var(--border2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .bm-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text);
+    }
+
+    .bm-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .bookmarklet-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 7px;
+      padding: 10px 18px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: grab;
+      user-select: none;
+      text-decoration: none;
+      transition: opacity 0.15s, transform 0.1s;
+      box-shadow: 0 2px 12px rgba(240, 192, 64, 0.25);
+    }
+
+    .bookmarklet-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .bookmarklet-btn:active { transform: scale(0.97); cursor: grabbing; }
+
+    .bm-instruction {
+      margin-top: 12px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .bm-instruction strong { color: var(--text); }
+
+    .bm-instruction .mobile-note {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: var(--surface2);
+      border-radius: 6px;
+      border-left: 2px solid var(--accent2);
+      color: var(--muted);
+    }
+
+    /* ── Scan button ── */
+    .scan-section { margin-bottom: 20px; }
+
+    .scan-btn {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: var(--text);
+    }
+
+    .scan-btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      background: var(--surface3);
+    }
+
+    .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .scan-btn-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .scan-btn-text {
+      flex: 1;
+      text-align: left;
+    }
+
+    .scan-btn-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--accent);
+    }
+
+    .scan-btn-sub {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 1px;
+    }
+
+    .scan-btn-arrow {
+      font-size: 18px;
+      color: var(--muted);
+    }
+
+    /* ── Progress ── */
+    .progress-wrap {
+      display: none;
+      margin-bottom: 20px;
+    }
+
+    .progress-wrap.visible { display: block; }
+
+    .progress-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .progress-bar-bg {
+      height: 3px;
+      background: var(--surface3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* ── Stats strip ── */
+    .stats-strip {
+      display: none;
+      gap: 0;
+      margin-bottom: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .stats-strip.visible { display: flex; }
+
+    .stat-cell {
+      flex: 1;
+      padding: 12px 16px;
+      border-right: 1px solid var(--border);
+    }
+
+    .stat-cell:last-child { border-right: none; }
+
+    .stat-val {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .stat-lbl {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
+
+    /* ── Filters ── */
+    .filter-row {
+      display: none;
+      gap: 6px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .filter-row.visible { display: flex; }
+
+    .filter-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-chip.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(240, 192, 64, 0.08);
+    }
+
+    /* ── Card list ── */
+    .card-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .card-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: border-color 0.15s, background 0.15s;
+      animation: card-in 0.25s ease both;
+    }
+
+    .card-item:hover { border-color: var(--border2); background: var(--surface2); }
+
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-rank {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--muted);
+      width: 24px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .card-img {
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: var(--surface2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .card-img img { width: 100%; height: 100%; object-fit: cover; }
+
+    .card-body { flex: 1; min-width: 0; }
+
+    .card-name {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: 0.3px;
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 3px;
+    }
+
+    .rarity-pip {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .pip-diamond { background: var(--diamond); }
+    .pip-gold    { background: var(--gold); }
+    .pip-silver  { background: var(--silver); }
+    .pip-bronze  { background: var(--bronze); }
+    .pip-common  { background: var(--muted); }
+
+    .card-team {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-ovr {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--muted);
+      padding: 1px 5px;
+      background: var(--surface3);
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .card-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .sell-price {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--green);
+      line-height: 1;
+    }
+
+    .sell-price.no-price {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 400;
+    }
+
+    .sell-btn {
+      background: var(--green);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .sell-btn:hover { opacity: 0.85; }
+    .sell-btn:active { transform: scale(0.96); }
+    .sell-btn.disabled {
+      background: var(--surface3);
+      color: var(--muted);
+      cursor: default;
+    }
+    .sell-btn.disabled:hover { opacity: 1; }
+    .sell-btn.sold {
+      background: var(--surface3);
+      color: var(--accent);
+      border: 1px solid var(--border2);
+    }
+
+    .card-qty {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Section header ── */
+    .section-hdr {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Empty / idle ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 12px;
+      text-align: center;
+    }
+
+    .empty-icon { font-size: 40px; }
+
+    .empty-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .empty-sub { font-size: 13px; color: var(--muted); max-width: 300px; line-height: 1.6; }
+
+    /* ── Error ── */
+    .error-box {
+      display: none;
+      background: rgba(224, 80, 80, 0.1);
+      border: 1px solid rgba(224, 80, 80, 0.3);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--red);
+      font-size: 13px;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .error-box.visible { display: block; }
+
+    /* ── History tab ── */
+    .history-summary {
+      display: flex;
+      gap: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .history-stat {
+      flex: 1;
+      padding: 12px 16px;
+      border-right: 1px solid var(--border);
+    }
+
+    .history-stat:last-child { border-right: none; }
+
+    .history-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      text-decoration: none;
+      color: inherit;
+      margin-bottom: 6px;
+      transition: border-color 0.12s, background 0.12s;
+    }
+
+    .history-row:hover { border-color: var(--border2); background: var(--surface2); }
+
+    .history-date {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .clear-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 12px;
+    }
+
+    .clear-btn:hover { border-color: var(--red); color: var(--red); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: var(--surface3);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      z-index: 9999;
+      opacity: 0;
+      transition: all 0.2s ease;
+      pointer-events: none;
+      white-space: nowrap;
+      max-width: 90vw;
+      text-align: center;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .toast.success { border-color: rgba(61,204,110,0.5); color: var(--green); }
+
+    /* ── Mobile tweaks ── */
+    @media (max-width: 480px) {
+      .logo-main { font-size: 32px; }
+      .card-item { padding: 10px 10px; gap: 8px; }
+      .card-rank { width: 18px; font-size: 14px; }
+      .card-img { width: 36px; height: 36px; }
+      .sell-price { font-size: 16px; }
+      .sell-btn { padding: 5px 10px; font-size: 13px; }
+      .stat-val { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-top">
+      <div class="logo">
+        <div class="logo-eyebrow">MLB The Show 26</div>
+        <div class="logo-main">⚡ DUPE<span>SELLER</span></div>
+      </div>
+      <div class="header-meta">
+        <div class="status-dot" id="statusDot"></div>
+        <div class="status-text" id="statusText">NOT CONNECTED</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="dupes">DUPLICATES</button>
+    <button class="tab" data-tab="history">HISTORY</button>
+    <button class="tab" data-tab="setup">SETUP</button>
+  </div>
+
+  <!-- ══ DUPES TAB ══ -->
+  <div id="tab-dupes">
+
+    <!-- Step 1: Bookmarklet -->
+    <div class="bookmarklet-card" id="bookmarkletCard">
+      <div class="bm-header">
+        <div class="bm-step">1</div>
+        <div>
+          <div class="bm-title">Go to The Show &amp; click the bookmarklet</div>
+          <div class="bm-sub">Drag the button below to your bookmarks bar, then click it on mlb26.theshow.com</div>
+        </div>
+      </div>
+
+      <a class="bookmarklet-btn" id="bookmarkletAnchor" href="#" title="Drag me to your bookmarks bar">
+        ⚡ Load Dupes
+      </a>
+
+      <div class="bm-instruction">
+        <strong>Desktop:</strong> Drag the button above to your bookmarks bar. Then go to
+        <strong>mlb26.theshow.com</strong> (logged in), click the bookmarklet, and your inventory
+        will load here automatically.<br><br>
+        <div class="mobile-note">
+          <strong>📱 iPhone/Safari:</strong> Bookmark any page, then edit the bookmark name to
+          <em>"Load Dupes"</em> and replace the URL with the bookmarklet code from the
+          <strong>SETUP</strong> tab. Then tap it while on mlb26.theshow.com.
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Scan -->
+    <div class="scan-section" id="scanSection" style="display:none">
+      <button class="scan-btn" id="scanBtn">
+        <div class="scan-btn-icon">🔍</div>
+        <div class="scan-btn-text">
+          <div class="scan-btn-label">SCAN FOR DUPLICATES</div>
+          <div class="scan-btn-sub" id="scanBtnSub">INVENTORY LOADED · READY TO SCAN</div>
+        </div>
+        <div class="scan-btn-arrow">→</div>
+      </button>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-label">
+        <span id="progressLabel">SCANNING...</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- Stats -->
+    <div class="stats-strip" id="statsStrip">
+      <div class="stat-cell">
+        <div class="stat-val" id="statDupes">0</div>
+        <div class="stat-lbl">Duplicates</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-val" id="statCards">0</div>
+        <div class="stat-lbl">Total Cards</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-val" id="statValue">—</div>
+        <div class="stat-lbl">Est. Value</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-row" id="filterRow">
+      <button class="filter-chip active" data-filter="all">ALL</button>
+      <button class="filter-chip" data-filter="Diamond">💎 DIAMOND</button>
+      <button class="filter-chip" data-filter="Gold">🥇 GOLD</button>
+      <button class="filter-chip" data-filter="Silver">🥈 SILVER</button>
+      <button class="filter-chip" data-filter="Bronze">🥉 BRONZE</button>
+    </div>
+
+    <!-- Card list -->
+    <div id="dupeContent">
+      <div class="empty-state" id="idleState">
+        <div class="empty-icon">🃏</div>
+        <div class="empty-title">Ready to Find Dupes</div>
+        <div class="empty-sub">Click the bookmarklet on mlb26.theshow.com to load your inventory, then scan.</div>
+      </div>
+      <div id="cardList"></div>
+    </div>
+
+  </div>
+
+  <!-- ══ HISTORY TAB ══ -->
+  <div id="tab-history" style="display:none">
+    <div id="historyContent">
+      <div class="empty-state" id="historyIdle">
+        <div class="empty-icon">📋</div>
+        <div class="empty-title">No History Yet</div>
+        <div class="empty-sub">Every card you click Sell on will be logged here with price and timestamp.</div>
+      </div>
+      <div id="historyList" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ══ SETUP TAB ══ -->
+  <div id="tab-setup" style="display:none">
+    <div class="bookmarklet-card">
+      <div class="bm-header">
+        <div class="bm-step">📱</div>
+        <div>
+          <div class="bm-title">iPhone / Safari Setup</div>
+          <div class="bm-sub">Copy the code below and paste it as a bookmark URL</div>
+        </div>
+      </div>
+      <div class="bm-instruction">
+        <strong>Steps:</strong><br>
+        1. In Safari, bookmark <em>any</em> page (e.g. apple.com)<br>
+        2. Go to Bookmarks → Edit the bookmark you just made<br>
+        3. Change the name to <strong>Load Dupes</strong><br>
+        4. Replace the URL with the code below<br>
+        5. Save — then tap it while on <strong>mlb26.theshow.com</strong>
+      </div>
+      <div style="margin-top:14px;">
+        <button class="sell-btn" id="copyBookmarkletBtn" style="width:100%;padding:10px;font-size:14px;">
+          📋 COPY BOOKMARKLET CODE
+        </button>
+      </div>
+      <div style="margin-top:10px;">
+        <textarea id="bookmarkletCode" readonly style="
+          width:100%; height:80px; background:var(--surface3); border:1px solid var(--border2);
+          border-radius:6px; padding:10px; color:var(--muted); font-family:'JetBrains Mono',monospace;
+          font-size:10px; resize:none; line-height:1.5;
+        "></textarea>
+      </div>
+    </div>
+
+    <div class="bookmarklet-card" style="margin-top:12px;">
+      <div class="bm-header">
+        <div class="bm-step">💻</div>
+        <div>
+          <div class="bm-title">Desktop Setup</div>
+          <div class="bm-sub">Just drag the button to your bookmarks bar</div>
+        </div>
+      </div>
+      <a class="bookmarklet-btn" id="bookmarkletAnchor2" href="#" title="Drag me to your bookmarks bar">
+        ⚡ Load Dupes
+      </a>
+      <div class="bm-instruction" style="margin-top:10px;">
+        Show your bookmarks bar in Chrome: <strong>Ctrl+Shift+B</strong> (Windows) or <strong>⌘+Shift+B</strong> (Mac).
+        Then drag the button above into it.
+      </div>
+    </div>
+
+    <div class="bookmarklet-card" style="margin-top:12px;">
+      <div class="bm-header">
+        <div class="bm-step">🔗</div>
+        <div>
+          <div class="bm-title">Host This App</div>
+          <div class="bm-sub">Deploy to GitHub Pages so it's accessible from any device</div>
+        </div>
+      </div>
+      <div class="bm-instruction">
+        1. Create a free <strong>GitHub</strong> account at github.com<br>
+        2. Create a new repository, upload <strong>index.html</strong><br>
+        3. Go to Settings → Pages → Source: main branch<br>
+        4. Your app will be live at <strong>username.github.io/repo-name</strong><br><br>
+        Bookmark that URL on your phone — it's your permanent dupe seller, accessible anywhere.
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  // ── Storage ────────────────────────────────────────────────────────
+  const DB_KEY_HISTORY = 'ds_history_v1';
+  const DB_KEY_DUPES   = 'ds_dupes_v1';
+  const DB_KEY_STATS   = 'ds_stats_v1';
+
+  function storageGet(key) {
+    try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+  }
+
+  function storageSet(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+  }
+
+  // ── State ──────────────────────────────────────────────────────────
+  let inventory = null;   // raw from bookmarklet
+  let allDupes  = [];
+  let currentFilter = 'all';
+
+  // ── Bookmarklet code ───────────────────────────────────────────────
+  // This runs on mlb26.theshow.com, fetches all inventory pages,
+  // then posts them back to this app via window.opener via postMessage.
+  const APP_URL = window.location.href.split('?')[0].replace(/\/$/, '');
+
+  const bookmarkletFn = `(function(){
+    var APP='${APP_URL}';
+    var BASE='https://mlb26.theshow.com/apis/inventory.json';
+    var all=[];
+    function fetchPage(p){
+      return fetch(BASE+'?type=mlb_card&page='+p,{credentials:'include'})
+        .then(function(r){return r.json();});
+    }
+    function done(inv){
+      var appWin=window.open(APP,'dupeseller');
+      function s(w){try{w.postMessage({type:'DS_INVENTORY',inventory:inv},'*');}catch(e){}}
+      if(appWin){s(appWin);setTimeout(function(){s(appWin);},1000);setTimeout(function(){s(appWin);},2500);}
+      alert('⚡ '+inv.length+' cards loaded into Dupe Seller!');
+    }
+    fetchPage(1).then(function(d){
+      if(!d.inventory){alert('Not logged in to mlb26.theshow.com');return;}
+      all=all.concat(d.inventory);
+      var total=d.total_pages||1;
+      var pages=[];
+      for(var i=2;i<=total;i++)pages.push(i);
+      if(!pages.length){done(all);return;}
+      var fetches=pages.map(function(p){return fetchPage(p);});
+      Promise.all(fetches).then(function(results){
+        results.forEach(function(r){if(r.inventory)all=all.concat(r.inventory);});
+        done(all);
+      });
+    }).catch(function(e){alert('Error: '+e.message);});
+  })()`;
+
+  const bookmarkletHref = 'javascript:' + encodeURIComponent(bookmarkletFn);
+
+  // Set href on both bookmarklet anchors
+  document.getElementById('bookmarkletAnchor').href = bookmarkletHref;
+  document.getElementById('bookmarkletAnchor2').href = bookmarkletHref;
+
+  // Setup tab: show raw code
+  const codeEl = document.getElementById('bookmarkletCode');
+  codeEl.value = bookmarkletHref;
+
+  document.getElementById('copyBookmarkletBtn').addEventListener('click', () => {
+    navigator.clipboard.writeText(bookmarkletHref).then(() => {
+      showToast('Bookmarklet code copied!', 'success');
+    });
+  });
+
+  // ── postMessage receiver ──────────────────────────────────────────
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'DS_INVENTORY' && Array.isArray(e.data.inventory)) {
+      inventory = e.data.inventory;
+      onInventoryLoaded();
+    }
+  });
+
+  // Restore previous dupes from localStorage
+  const savedDupes = storageGet(DB_KEY_DUPES);
+  const savedStats = storageGet(DB_KEY_STATS);
+  if (savedDupes && savedDupes.length) {
+    allDupes = savedDupes;
+    showCards();
+    if (savedStats) updateStats(savedStats.dupes, savedStats.cards, savedStats.value, false);
+    setStatus(true, 'LAST SCAN RESTORED');
+  }
+
+  function onInventoryLoaded() {
+    setStatus(true, `${inventory.length} CARDS LOADED`);
+    document.getElementById('bookmarkletCard').classList.add('has-data');
+    document.getElementById('scanSection').style.display = 'block';
+    document.getElementById('idleState').style.display = 'none';
+    document.getElementById('scanBtnSub').textContent =
+      `${inventory.length} CARDS LOADED · CLICK TO SCAN`;
+    showToast(`${inventory.length} cards loaded!`, 'success');
+    // Switch to dupes tab if not already there
+    switchTab('dupes');
+  }
+
+  // ── Tabs ───────────────────────────────────────────────────────────
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    document.getElementById('tab-dupes').style.display    = name === 'dupes'   ? 'block' : 'none';
+    document.getElementById('tab-history').style.display  = name === 'history' ? 'block' : 'none';
+    document.getElementById('tab-setup').style.display    = name === 'setup'   ? 'block' : 'none';
+    if (name === 'history') renderHistory();
+  }
+
+  // ── Filters ────────────────────────────────────────────────────────
+  document.querySelectorAll('.filter-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      renderCards();
+    });
+  });
+
+  // ── Scan ───────────────────────────────────────────────────────────
+  document.getElementById('scanBtn').addEventListener('click', scan);
+
+  async function scan() {
+    if (!inventory || !inventory.length) {
+      showError('No inventory loaded. Click the bookmarklet on mlb26.theshow.com first.');
+      return;
+    }
+
+    const dupes = inventory.filter(i => i.quantity && i.quantity > 1);
+
+    if (!dupes.length) {
+      allDupes = [];
+      storageSet(DB_KEY_DUPES, []);
+      showCards();
+      updateStats(0, inventory.length, 0);
+      return;
+    }
+
+    setProgress(true, `FETCHING PRICES FOR ${dupes.length} CARDS...`, 5);
+    document.getElementById('scanBtn').disabled = true;
+    clearError();
+
+    // Fetch prices for all dupes
+    const priceMap = {};
+    const BATCH = 6;
+
+    for (let i = 0; i < dupes.length; i += BATCH) {
+      const chunk = dupes.slice(i, i + BATCH);
+      const results = await Promise.all(
+        chunk.map(item =>
+          fetch(`https://mlb26.theshow.com/apis/listing.json?uuid=${item.uuid}`, { credentials: 'include' })
+            .then(r => r.json())
+            .catch(() => null)
+        )
+      );
+      chunk.forEach((item, idx) => { priceMap[item.uuid] = results[idx]; });
+      const pct = Math.round(((i + BATCH) / dupes.length) * 100);
+      setProgress(true, `FETCHING PRICES... ${Math.min(i + BATCH, dupes.length)}/${dupes.length}`, pct);
+    }
+
+    // Build and sort
+    const withPrices = dupes.map(d => ({ ...d, _listing: priceMap[d.uuid] }));
+    withPrices.sort((a, b) => {
+      const pa = getSellPrice(a._listing);
+      const pb = getSellPrice(b._listing);
+      if (pa === null && pb === null) return 0;
+      if (pa === null) return 1;
+      if (pb === null) return -1;
+      return pb - pa;
+    });
+
+    allDupes = withPrices;
+    storageSet(DB_KEY_DUPES, allDupes);
+
+    setProgress(false);
+    document.getElementById('scanBtn').disabled = false;
+    showCards();
+
+    const totalValue = allDupes.reduce((s, d) => {
+      const p = getSellPrice(d._listing);
+      return s + (p ? p * (d.quantity - 1) : 0);
+    }, 0);
+    updateStats(allDupes.length, inventory.length, totalValue);
+  }
+
+  // ── Render dupes ───────────────────────────────────────────────────
+  function showCards() {
+    document.getElementById('idleState').style.display = 'none';
+    document.getElementById('filterRow').classList.add('visible');
+    renderCards();
+  }
+
+  function renderCards() {
+    const list = document.getElementById('cardList');
+    list.innerHTML = '';
+
+    const filtered = currentFilter === 'all'
+      ? allDupes
+      : allDupes.filter(d => (d.rarity || '').toLowerCase() === currentFilter.toLowerCase());
+
+    if (!filtered.length) {
+      list.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">${allDupes.length === 0 ? '✅' : '🔍'}</div>
+        <div class="empty-title">${allDupes.length === 0 ? 'No Duplicates' : 'No ' + currentFilter + ' Dupes'}</div>
+        <div class="empty-sub">${allDupes.length === 0 ? 'Your inventory has no duplicate cards.' : 'Try a different filter.'}</div>
+      </div>`;
+      return;
+    }
+
+    const hdr = document.createElement('div');
+    hdr.className = 'section-hdr';
+    hdr.textContent = `${filtered.length} DUPLICATE${filtered.length !== 1 ? 'S' : ''} · SORTED BY SELL PRICE`;
+    list.appendChild(hdr);
+
+    const cardList = document.createElement('div');
+    cardList.className = 'card-list';
+
+    // Get sold set from history to mark already-sold cards
+    const history = storageGet(DB_KEY_HISTORY) || [];
+    const soldUUIDs = new Set(history.map(h => h.uuid));
+
+    filtered.forEach((item, idx) => {
+      const sellPrice = getSellPrice(item._listing);
+      const targetPrice = sellPrice !== null ? Math.max(1, sellPrice - 1) : null;
+      const extraCopies = (item.quantity || 2) - 1;
+      const img = item.baked_img || item.img || '';
+      const alreadySold = soldUUIDs.has(item.uuid);
+
+      const card = document.createElement('div');
+      card.className = 'card-item';
+      card.style.animationDelay = `${idx * 30}ms`;
+
+      card.innerHTML = `
+        <div class="card-rank">${idx + 1}</div>
+        <div class="card-img">
+          ${img ? `<img src="${img}" alt="" loading="lazy"/>` : '⚾'}
+        </div>
+        <div class="card-body">
+          <div class="card-name">${item.name || 'Unknown'}</div>
+          <div class="card-meta">
+            <div class="rarity-pip ${pipClass(item.rarity)}"></div>
+            <div class="card-team">${item.team || '—'}</div>
+            ${item.ovr ? `<div class="card-ovr">${item.ovr}</div>` : ''}
+          </div>
+        </div>
+        <div class="card-right">
+          ${targetPrice !== null
+            ? `<div class="sell-price">${fmt(targetPrice)}</div>`
+            : `<div class="sell-price no-price">No listing</div>`
+          }
+          ${targetPrice !== null
+            ? `<button class="sell-btn${alreadySold ? ' sold' : ''}">${alreadySold ? '✓ LISTED' : `SELL ×${extraCopies}`}</button>`
+            : `<button class="sell-btn disabled" disabled>NO PRICE</button>`
+          }
+          <div class="card-qty">×${item.quantity} owned</div>
+        </div>
+      `;
+
+      const btn = card.querySelector('.sell-btn:not(.disabled)');
+      if (btn) {
+        btn.addEventListener('click', () => onSell(item, targetPrice, extraCopies, btn));
+      }
+
+      cardList.appendChild(card);
+    });
+
+    list.appendChild(cardList);
+  }
+
+  // ── Sell ───────────────────────────────────────────────────────────
+  function onSell(item, price, qty, btn) {
+    // Save to history
+    const entry = {
+      uuid: item.uuid,
+      name: item.name,
+      rarity: item.rarity,
+      ovr: item.ovr,
+      img: item.baked_img || item.img || '',
+      price,
+      qty,
+      ts: Date.now()
+    };
+
+    const history = storageGet(DB_KEY_HISTORY) || [];
+    history.unshift(entry);
+    if (history.length > 500) history.splice(500);
+    storageSet(DB_KEY_HISTORY, history);
+
+    // Update button to show sold state
+    btn.textContent = '✓ LISTED';
+    btn.classList.add('sold');
+
+    // Open the item page, then inject the autofill script into it
+    const itemUrl = `https://mlb26.theshow.com/items/${item.uuid}`;
+    const newTab = window.open(itemUrl, '_blank');
+
+    // Inject autofill into the new tab once it loads
+    // We poll until the tab's document is ready and on the right URL
+    const sellPayload = { uuid: item.uuid, price, qty, name: item.name };
+    injectAutofill(newTab, sellPayload);
+
+    showToast(`Opening ${item.name || 'card'} — price pre-filled`, 'success');
+  }
+
+  // ── History ────────────────────────────────────────────────────────
+  function renderHistory() {
+    const history = storageGet(DB_KEY_HISTORY) || [];
+    const idle = document.getElementById('historyIdle');
+    const list = document.getElementById('historyList');
+
+    if (!history.length) {
+      idle.style.display = 'flex';
+      list.style.display = 'none';
+      return;
+    }
+
+    idle.style.display = 'none';
+    list.style.display = 'block';
+    list.innerHTML = '';
+
+    const totalStubs = history.reduce((s, h) => s + (h.price * h.qty || 0), 0);
+
+    // Summary
+    const summary = document.createElement('div');
+    summary.className = 'history-summary';
+    summary.innerHTML = `
+      <div class="history-stat">
+        <div class="stat-val">${history.length}</div>
+        <div class="stat-lbl">Sells Initiated</div>
+      </div>
+      <div class="history-stat">
+        <div class="stat-val">${fmt(totalStubs)}</div>
+        <div class="stat-lbl">Total Stubs Listed</div>
+      </div>
+    `;
+    list.appendChild(summary);
+
+    // Clear button
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'clear-btn';
+    clearBtn.textContent = 'CLEAR ALL HISTORY';
+    clearBtn.addEventListener('click', () => {
+      if (confirm('Clear all sell history?')) {
+        storageSet(DB_KEY_HISTORY, []);
+        renderHistory();
+      }
+    });
+    list.appendChild(clearBtn);
+
+    const sectionHdr = document.createElement('div');
+    sectionHdr.className = 'section-hdr';
+    sectionHdr.textContent = `${history.length} ENTRIES · MOST RECENT FIRST`;
+    list.appendChild(sectionHdr);
+
+    history.forEach(entry => {
+      const row = document.createElement('a');
+      row.className = 'history-row';
+      row.href = `https://mlb26.theshow.com/items/${entry.uuid}`;
+      row.target = '_blank';
+
+      const d = new Date(entry.ts);
+      const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+      row.innerHTML = `
+        <div class="card-img" style="width:34px;height:34px;flex-shrink:0;">
+          ${entry.img ? `<img src="${entry.img}" alt="" loading="lazy"/>` : '⚾'}
+        </div>
+        <div class="card-body">
+          <div class="card-name" style="font-size:13px;">${entry.name || 'Unknown'}</div>
+          <div class="card-meta">
+            <div class="rarity-pip ${pipClass(entry.rarity)}"></div>
+            <div class="history-date">${dateStr} · ${timeStr}</div>
+          </div>
+        </div>
+        <div class="card-right">
+          <div class="sell-price" style="font-size:16px;">${fmt(entry.price)}</div>
+          <div class="card-qty">×${entry.qty}</div>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────
+  function getSellPrice(listing) {
+    if (!listing || listing.error) return null;
+    const p = listing.best_sell_price ?? listing.listing?.best_sell_price;
+    if (p === '-' || p == null) return null;
+    const n = parseInt(p, 10);
+    return isNaN(n) ? null : n;
+  }
+
+  function fmt(n) {
+    if (!n) return '—';
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'K';
+    return Number(n).toLocaleString();
+  }
+
+  function pipClass(r) {
+    switch ((r || '').toLowerCase()) {
+      case 'diamond': return 'pip-diamond';
+      case 'gold':    return 'pip-gold';
+      case 'silver':  return 'pip-silver';
+      case 'bronze':  return 'pip-bronze';
+      default:        return 'pip-common';
+    }
+  }
+
+  function setStatus(connected, text) {
+    document.getElementById('statusDot').className = 'status-dot' + (connected ? ' connected' : '');
+    document.getElementById('statusText').textContent = text;
+  }
+
+  function setProgress(visible, label = '', pct = 0) {
+    const wrap = document.getElementById('progressWrap');
+    wrap.classList.toggle('visible', visible);
+    if (visible) {
+      document.getElementById('progressLabel').textContent = label;
+      document.getElementById('progressPct').textContent = Math.min(pct, 100) + '%';
+      document.getElementById('progressFill').style.width = Math.min(pct, 100) + '%';
+    }
+  }
+
+  function updateStats(dupes, cards, value, persist = true) {
+    document.getElementById('statsStrip').classList.add('visible');
+    document.getElementById('statDupes').textContent = dupes;
+    document.getElementById('statCards').textContent = cards;
+    document.getElementById('statValue').textContent = value > 0 ? fmt(value) : '—';
+    if (persist) storageSet(DB_KEY_STATS, { dupes, cards, value });
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorBox');
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+
+  function clearError() {
+    document.getElementById('errorBox').classList.remove('visible');
+  }
+
+  function showToast(text, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = text;
+    el.className = 'toast' + (type ? ' ' + type : '');
+    void el.offsetWidth;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+
+  // ── Autofill injection ─────────────────────────────────────────────
+  function injectAutofill(tabRef, data) {
+    if (!tabRef) return;
+    let attempts = 0;
+    const timer = setInterval(() => {
+      attempts++;
+      if (attempts > 60) { clearInterval(timer); return; } // give up after 6s
+      try {
+        const doc = tabRef.document;
+        if (!doc || doc.readyState === 'loading') return;
+        if (!doc.location.href.includes('/items/')) return;
+        if (doc.getElementById('ds-injected')) { clearInterval(timer); return; }
+
+        // Mark as injected
+        const marker = doc.createElement('div');
+        marker.id = 'ds-injected';
+        marker.style.display = 'none';
+        doc.body.appendChild(marker);
+        clearInterval(timer);
+
+        // Build and inject the autofill script
+        const script = doc.createElement('script');
+        script.textContent = buildAutofillScript(data);
+        doc.head.appendChild(script);
+      } catch (e) {
+        // Cross-origin error — tab navigated away or blocked; stop trying
+        clearInterval(timer);
+      }
+    }, 100);
+  }
+
+  function buildAutofillScript(data) {
+    const price = data.price;
+    const name = (data.name || '').replace(/'/g, "\'");
+    return `(function(){
+      function waitForForm(attempts){
+        attempts=attempts||0;
+        if(attempts>50)return;
+        var forms=document.querySelectorAll('form[action*="/create_sell_order"]');
+        var form=null;
+        for(var i=0;i<forms.length;i++){if(forms[i].querySelector('input[name="authenticity_token"]')){form=forms[i];break;}}
+        if(!form)form=forms[0];
+        if(form){fillForm(form);}else{setTimeout(function(){waitForForm(attempts+1);},100);}
+      }
+      function fillForm(form){
+        var inp=form.querySelector('input#price,input[name="price"]');
+        if(inp){inp.value='${price}';inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}));inp.focus();}
+        var btn=form.querySelector('button.g-recaptcha,button[type="submit"]');
+        if(btn){
+          var s=document.createElement('style');
+          s.textContent='@keyframes dsp{0%,100%{box-shadow:0 0 0 0 rgba(61,204,110,.6)}50%{box-shadow:0 0 0 10px rgba(61,204,110,0)}}';
+          document.head.appendChild(s);
+          btn.style.animation='dsp 1.2s ease-in-out infinite';
+          btn.style.outline='2px solid #3dcc6e';
+          btn.style.outlineOffset='3px';
+          btn.scrollIntoView({behavior:'smooth',block:'center'});
+        }
+        showBanner();
+      }
+      function showBanner(){
+        if(document.getElementById('ds-b'))return;
+        var fmtPrice='${price}'>=1000000?('${price}'/1000000).toFixed(1)+'M':'${price}'>=1000?('${price}'/1000).toFixed(1)+'K':Number('${price}').toLocaleString();
+        var b=document.createElement('div');
+        b.id='ds-b';
+        b.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:999999;background:#0f1219;border:1px solid #3dcc6e;border-radius:10px;padding:14px 20px;font-family:sans-serif;font-size:13px;color:#dde2ef;box-shadow:0 8px 32px rgba(0,0,0,.7);display:flex;align-items:center;gap:12px;min-width:280px;max-width:440px;';
+        b.innerHTML='<span style="font-size:20px">⚡</span><div style="flex:1"><div style="font-weight:700;color:#3dcc6e;margin-bottom:2px">Price filled — '+fmtPrice+' stubs</div><div style="font-size:11px;color:#5a6480">${name} · Solve CAPTCHA &amp; click <b style=color:#dde2ef>Finalize Order</b></div></div><button onclick="this.parentNode.remove()" style="background:none;border:none;color:#5a6480;cursor:pointer;font-size:16px;padding:0">✕</button>';
+        document.body.appendChild(b);
+        setTimeout(function(){if(b.parentNode)b.remove();},12000);
+      }
+      waitForForm();
+    })();`;
+  }
+})();
+</script>
+</body>
+</html>
