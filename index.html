@@ -935,29 +935,71 @@
     var APP='${APP_URL}';
     var BASE='https://mlb26.theshow.com/apis/inventory.json';
     var all=[];
+    var statusEl=null;
+
+    // Show inline status so user knows it's working
+    statusEl=document.createElement('div');
+    statusEl.id='ds-status';
+    statusEl.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f1219;border:1px solid #f0c040;color:#f0c040;padding:12px 20px;border-radius:8px;font-family:sans-serif;font-size:13px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.5);';
+    statusEl.textContent='\u26a1 Loading inventory...';
+    document.body.appendChild(statusEl);
+
+    function setStatus(txt){ if(statusEl) statusEl.textContent=txt; }
+
     function fetchPage(p){
       return fetch(BASE+'?type=mlb_card&page='+p,{credentials:'include'})
         .then(function(r){return r.json();});
     }
+
     function done(inv){
+      setStatus('\u26a1 '+inv.length+' cards ready — opening Dupe Seller...');
+
+      // Open the app. Pass inventory via postMessage once app signals it is ready.
       var appWin=window.open(APP,'dupeseller');
-      function s(w){try{w.postMessage({type:'DS_INVENTORY',inventory:inv},'*');}catch(e){}}
-      if(appWin){s(appWin);setTimeout(function(){s(appWin);},1000);setTimeout(function(){s(appWin);},2500);}
-      alert('⚡ '+inv.length+' cards loaded into Dupe Seller!');
+
+      // Listen for the app saying "I am ready, please send inventory"
+      window.addEventListener('message', function onReady(e){
+        if(e.data && e.data.type==='DS_READY'){
+          window.removeEventListener('message', onReady);
+          appWin.postMessage({type:'DS_INVENTORY', inventory:inv},'*');
+          setStatus('\u26a1 Done! '+inv.length+' cards sent.');
+          setTimeout(function(){ if(statusEl) statusEl.remove(); }, 3000);
+        }
+      });
+
+      // Also send immediately and after delays in case DS_READY already fired
+      function tryPost(){ try{ appWin.postMessage({type:'DS_INVENTORY',inventory:inv},'*'); }catch(e){} }
+      setTimeout(tryPost, 500);
+      setTimeout(tryPost, 1500);
+      setTimeout(tryPost, 3000);
     }
+
     fetchPage(1).then(function(d){
-      if(!d.inventory){alert('Not logged in to mlb26.theshow.com');return;}
+      if(!d.inventory){
+        setStatus('Not logged in!');
+        setTimeout(function(){ if(statusEl) statusEl.remove(); }, 3000);
+        return;
+      }
       all=all.concat(d.inventory);
       var total=d.total_pages||1;
+      setStatus('\u26a1 Fetching '+total+' pages...');
       var pages=[];
       for(var i=2;i<=total;i++)pages.push(i);
       if(!pages.length){done(all);return;}
-      var fetches=pages.map(function(p){return fetchPage(p);});
-      Promise.all(fetches).then(function(results){
-        results.forEach(function(r){if(r.inventory)all=all.concat(r.inventory);});
-        done(all);
-      });
-    }).catch(function(e){alert('Error: '+e.message);});
+      var batches=[];
+      for(var b=0;b<pages.length;b+=5)batches.push(pages.slice(b,b+5));
+      (function nextBatch(bi){
+        if(bi>=batches.length){done(all);return;}
+        setStatus('\u26a1 Loading page '+(batches[bi][0])+' of '+total+'...');
+        Promise.all(batches[bi].map(fetchPage)).then(function(results){
+          results.forEach(function(r){if(r&&r.inventory)all=all.concat(r.inventory);});
+          nextBatch(bi+1);
+        });
+      })(0);
+    }).catch(function(e){
+      setStatus('Error: '+e.message);
+      setTimeout(function(){ if(statusEl) statusEl.remove(); }, 5000);
+    });
   })()`;
 
   const bookmarkletHref = 'javascript:' + encodeURIComponent(bookmarkletFn);
@@ -977,8 +1019,30 @@
   });
 
   // ── postMessage receiver ──────────────────────────────────────────
+  // When this app loads/gains focus, it broadcasts DS_READY so the bookmarklet
+  // (running on mlb26.theshow.com) knows to send the inventory data.
+  let _inventoryReceived = false;
+
+  function announceReady() {
+    // Tell any opener or parent that we are ready to receive inventory
+    if (window.opener) {
+      try { window.opener.postMessage({ type: 'DS_READY' }, '*'); } catch(e) {}
+    }
+    // Also broadcast to all windows (catches cases where opener ref is lost)
+    // We do this by sending to ourselves and relying on the bookmarklet's message listener
+  }
+
+  // Announce ready on load, on focus, and after a short delay
+  announceReady();
+  setTimeout(announceReady, 500);
+  setTimeout(announceReady, 1500);
+  window.addEventListener('focus', announceReady);
+  window.addEventListener('pageshow', announceReady);
+
+  // Receive inventory from the bookmarklet
   window.addEventListener('message', (e) => {
-    if (e.data && e.data.type === 'DS_INVENTORY' && Array.isArray(e.data.inventory)) {
+    if (!_inventoryReceived && e.data && e.data.type === 'DS_INVENTORY' && Array.isArray(e.data.inventory)) {
+      _inventoryReceived = true;
       inventory = e.data.inventory;
       onInventoryLoaded();
     }
