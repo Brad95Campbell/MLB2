@@ -1137,6 +1137,8 @@
   // ── Scan ───────────────────────────────────────────────────────────
   document.getElementById('scanBtn').addEventListener('click', scan);
 
+  const DEBUG = new URLSearchParams(window.location.search).has('debug');
+
   async function scan() {
     if (!inventory || !inventory.length) {
       showError('No inventory loaded. Click the bookmarklet on mlb26.theshow.com first.');
@@ -1144,6 +1146,31 @@
     }
 
     const dupes = inventory.filter(i => i.quantity && i.quantity > 1);
+
+    // ── DEBUG MODE ─────────────────────────────────────────────────────
+    // If ?debug=1 is in URL, fetch the first dupe's raw API responses and
+    // display them on screen so we can see the exact field names returned.
+    if (DEBUG && dupes.length > 0) {
+      const testItem = dupes[0];
+      const [listingRaw, itemRaw] = await Promise.all([
+        fetch(`https://mlb26.theshow.com/apis/listing.json?uuid=${testItem.uuid}`, {credentials:'include'}).then(r=>r.json()).catch(e=>({error:e.message})),
+        fetch(`https://mlb26.theshow.com/apis/item.json?uuid=${testItem.uuid}`, {credentials:'include'}).then(r=>r.json()).catch(e=>({error:e.message})),
+      ]);
+
+      // Also show what fields the inventory item itself has
+      const invFields = {};
+      Object.keys(testItem).forEach(k => { invFields[k] = testItem[k]; });
+
+      showDebugPanel({
+        card_name: testItem.name,
+        uuid: testItem.uuid,
+        inventory_item_fields: invFields,
+        listing_api_response: listingRaw,
+        item_api_response: itemRaw,
+      });
+      return; // stop here in debug mode — don't do full scan
+    }
+    // ── END DEBUG ───────────────────────────────────────────────────────
 
     if (!dupes.length) {
       allDupes = [];
@@ -1445,6 +1472,73 @@
       `;
       list.appendChild(row);
     });
+  }
+
+  // ── Debug panel ────────────────────────────────────────────────────
+  function showDebugPanel(data) {
+    // Remove any existing debug panel
+    const existing = document.getElementById('debug-panel');
+    if (existing) existing.remove();
+
+    const panel = document.createElement('div');
+    panel.id = 'debug-panel';
+    panel.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:99999',
+      'background:rgba(8,10,15,0.97)',
+      'overflow-y:auto', 'padding:20px',
+      'font-family:monospace', 'font-size:12px', 'color:#dde2ef',
+    ].join(';');
+
+    const close = document.createElement('button');
+    close.textContent = '✕ CLOSE DEBUG';
+    close.style.cssText = 'background:#f0c040;color:#000;border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer;margin-bottom:16px;font-size:13px;';
+    close.onclick = () => panel.remove();
+    panel.appendChild(close);
+
+    const title = document.createElement('div');
+    title.style.cssText = 'color:#f0c040;font-size:16px;font-weight:700;margin-bottom:16px;';
+    title.textContent = `⚡ DEBUG — ${data.card_name} (${data.uuid})`;
+    panel.appendChild(title);
+
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = '📋 COPY ALL TO CLIPBOARD';
+    copyBtn.style.cssText = 'background:#1e2535;color:#dde2ef;border:1px solid #252d3f;border-radius:6px;padding:8px 16px;cursor:pointer;margin-bottom:20px;font-size:12px;';
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(JSON.stringify(data, null, 2))
+        .then(() => { copyBtn.textContent = '✓ COPIED!'; setTimeout(() => copyBtn.textContent = '📋 COPY ALL TO CLIPBOARD', 2000); });
+    };
+    panel.appendChild(copyBtn);
+
+    const note = document.createElement('div');
+    note.style.cssText = 'background:#1e2535;border:1px solid #3d9be0;border-radius:8px;padding:12px;margin-bottom:20px;color:#3d9be0;font-size:12px;line-height:1.6;';
+    note.innerHTML = '<strong>Instructions:</strong> Click "Copy All to Clipboard" and paste the result into the chat. This shows the exact field names returned by the API so the price parsing can be fixed.';
+    panel.appendChild(note);
+
+    // Render each section
+    const sections = [
+      { title: 'INVENTORY ITEM FIELDS (from bookmarklet)', data: data.inventory_item_fields },
+      { title: 'LISTING API RESPONSE (/apis/listing.json)', data: data.listing_api_response },
+      { title: 'ITEM API RESPONSE (/apis/item.json)', data: data.item_api_response },
+    ];
+
+    sections.forEach(sec => {
+      const hdr = document.createElement('div');
+      hdr.style.cssText = 'color:#f0c040;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;margin-top:16px;';
+      hdr.textContent = sec.title;
+      panel.appendChild(hdr);
+
+      const pre = document.createElement('pre');
+      pre.style.cssText = 'background:#0f1219;border:1px solid #252d3f;border-radius:8px;padding:14px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;line-height:1.6;color:#dde2ef;margin-bottom:4px;';
+      pre.textContent = JSON.stringify(sec.data, null, 2);
+
+      // Highlight price-related fields
+      pre.innerHTML = pre.innerHTML
+        .replace(/"(price|sell|buy|quick|stub|value|qs)[^"]*"/gi, m => `<span style="color:#f0c040">${m}</span>`);
+
+      panel.appendChild(pre);
+    });
+
+    document.body.appendChild(panel);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────
