@@ -1121,23 +1121,24 @@
 
     function done(inv, prices){
       setStatus('\u26a1 Opening Dupe Seller...');
+      _pendingPayload = {inventory:inv, prices:prices};
       var appWin=window.open(APP,'dupeseller');
-      var payload={inventory:inv, prices:prices};
       if(appWin){
-        send(appWin,payload);
-        setTimeout(function(){send(appWin,payload);},1000);
-        setTimeout(function(){send(appWin,payload);},2500);
-        setTimeout(function(){send(appWin,payload);},4500);
+        // Try immediately and on a schedule — app will also request via DS_READY
+        send(appWin,_pendingPayload);
+        setTimeout(function(){if(_pendingPayload)send(appWin,_pendingPayload);},800);
+        setTimeout(function(){if(_pendingPayload)send(appWin,_pendingPayload);},2000);
+        setTimeout(function(){if(_pendingPayload)send(appWin,_pendingPayload);},4000);
       }
-      setTimeout(function(){ if(statusEl) statusEl.remove(); },4000);
+      setTimeout(function(){ if(statusEl) statusEl.remove(); },5000);
     }
 
-    // Listen for DS_READY from the app
-    window.addEventListener('message', function onReady(e){
-      if(e.data && e.data.type==='DS_READY' && e.data.payload){
-        window.removeEventListener('message', onReady);
+    // Store payload globally so DS_READY handler can access it
+    var _pendingPayload = null;
+    window.addEventListener('message', function(e){
+      if(e.data && e.data.type==='DS_READY' && _pendingPayload){
         var appWin=window.open(APP,'dupeseller');
-        if(appWin) send(appWin, e.data.payload);
+        if(appWin) send(appWin, _pendingPayload);
       }
     });
 
@@ -1205,20 +1206,19 @@
   let _inventoryReceived = false;
 
   function announceReady() {
-    // Tell any opener or parent that we are ready to receive inventory
     if (window.opener) {
       try { window.opener.postMessage({ type: 'DS_READY' }, '*'); } catch(e) {}
     }
-    // Also broadcast to all windows (catches cases where opener ref is lost)
-    // We do this by sending to ourselves and relying on the bookmarklet's message listener
   }
 
-  // Announce ready on load, on focus, and after a short delay
+  // Announce ready frequently on load so bookmarklet can respond
   announceReady();
-  setTimeout(announceReady, 500);
+  setTimeout(announceReady, 300);
+  setTimeout(announceReady, 700);
   setTimeout(announceReady, 1500);
+  setTimeout(announceReady, 3000);
+  setTimeout(announceReady, 5000);
   window.addEventListener('focus', announceReady);
-  window.addEventListener('pageshow', announceReady);
 
   // Receive inventory + prices from the bookmarklet
   window.addEventListener('message', (e) => {
@@ -1226,19 +1226,13 @@
       _inventoryReceived = true;
       inventory = e.data.inventory;
       priceMap = e.data.prices || {};
+      console.log('[DupeSeller] Received', inventory.length, 'cards,', Object.keys(priceMap).length, 'prices');
       onInventoryLoaded();
     }
   });
 
-  // Restore previous dupes from localStorage
-  const savedDupes = storageGet(DB_KEY_DUPES);
-  const savedStats = storageGet(DB_KEY_STATS);
-  if (savedDupes && savedDupes.length) {
-    allDupes = savedDupes;
-    showCards();
-    if (savedStats) updateStats(savedStats.dupes, savedStats.cards, savedStats.value, false);
-    setStatus(true, 'LAST SCAN RESTORED');
-  }
+  // Note: we don't restore dupes from localStorage since prices are not persisted
+  // (prices are fetched fresh each time via bookmarklet)
 
   function onInventoryLoaded() {
     const priceCount = Object.keys(priceMap).length;
