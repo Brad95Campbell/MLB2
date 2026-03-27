@@ -1111,6 +1111,48 @@
     switchTab('dupes');
   }
 
+  // ── Debug mode: show button immediately, no inventory needed ─────────
+  if (DEBUG) {
+    const debugBar = document.createElement('div');
+    debugBar.style.cssText = 'background:#f0c040;color:#000;padding:10px 16px;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+    debugBar.innerHTML = `
+      <span style="font-weight:700;font-size:13px;">⚡ DEBUG MODE — Enter any card UUID to inspect API response</span>
+      <div style="display:flex;gap:8px;flex:1;max-width:400px;">
+        <input id="debug-uuid-input" placeholder="Paste a card UUID here..." style="flex:1;padding:7px 10px;border-radius:6px;border:none;font-size:12px;font-family:monospace;background:#fff;color:#000;"/>
+        <button id="debug-fetch-btn" style="background:#000;color:#f0c040;border:none;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;white-space:nowrap;">FETCH</button>
+      </div>
+    `;
+
+    // Insert at top of dupes tab
+    const dupesTab = document.getElementById('tab-dupes');
+    dupesTab.insertBefore(debugBar, dupesTab.firstChild);
+
+    document.getElementById('debug-fetch-btn').addEventListener('click', async () => {
+      const uuid = document.getElementById('debug-uuid-input').value.trim();
+      if (!uuid) { alert('Paste a UUID first'); return; }
+
+      const btn = document.getElementById('debug-fetch-btn');
+      btn.textContent = 'LOADING...';
+      btn.disabled = true;
+
+      const [listingRaw, itemRaw] = await Promise.all([
+        fetch(`https://mlb26.theshow.com/apis/listing.json?uuid=${uuid}`, {credentials:'include'}).then(r=>r.json()).catch(e=>({error:e.message})),
+        fetch(`https://mlb26.theshow.com/apis/item.json?uuid=${uuid}`, {credentials:'include'}).then(r=>r.json()).catch(e=>({error:e.message})),
+      ]);
+
+      btn.textContent = 'FETCH';
+      btn.disabled = false;
+
+      showDebugPanel({
+        uuid,
+        card_name: listingRaw?.listing?.name || itemRaw?.name || uuid,
+        inventory_item_fields: { note: 'Load inventory via bookmarklet then scan for this data' },
+        listing_api_response: listingRaw,
+        item_api_response: itemRaw,
+      });
+    });
+  }
+
   // ── Tabs ───────────────────────────────────────────────────────────
   document.querySelectorAll('.tab').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
