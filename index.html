@@ -964,6 +964,7 @@
 
   // ── State ──────────────────────────────────────────────────────────
   let inventory = null;   // raw from bookmarklet
+  let priceMap  = {};     // uuid -> listing data, fetched by bookmarklet
   let allDupes  = [];
   let currentFilter = 'all';
 
@@ -974,72 +975,145 @@
 
   const bookmarkletFn = `(function(){
     var APP='${APP_URL}';
-    var BASE='https://mlb26.theshow.com/apis/inventory.json';
+    var BASE='https://mlb26.theshow.com/apis';
     var all=[];
     var statusEl=null;
 
-    // Show inline status so user knows it's working
+    // Quick sell values by OVR (MLB 26 — provided by user)
+    function getQSValue(rarity, ovr) {
+      var r = (rarity || '').toLowerCase();
+      var o = parseInt(ovr) || 0;
+      if (r === 'common')  return 5;
+      if (r === 'bronze')  return 25;
+      if (r === 'silver') {
+        if (o <= 75) return 50;
+        if (o === 76) return 75;
+        if (o === 77) return 100;
+        if (o === 78) return 125;
+        if (o >= 79) return 150;
+      }
+      if (r === 'gold') {
+        if (o <= 80) return 400;
+        if (o === 81) return 600;
+        if (o === 82) return 900;
+        if (o === 83) return 1200;
+        if (o === 84) return 1500;
+        if (o >= 85) return 1500;
+      }
+      if (r === 'diamond' || r === 'red diamond') {
+        if (o <= 85) return 3000;
+        if (o === 86) return 3750;
+        if (o === 87) return 4500;
+        if (o === 88) return 5500;
+        if (o === 89) return 7000;
+        if (o === 90) return 8000;
+        if (o === 91) return 9000;
+        if (o >= 92)  return 9000; // cap at 9000 until higher values confirmed
+      }
+      return 5;
+    }
+
     statusEl=document.createElement('div');
     statusEl.id='ds-status';
-    statusEl.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f1219;border:1px solid #f0c040;color:#f0c040;padding:12px 20px;border-radius:8px;font-family:sans-serif;font-size:13px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.5);';
+    statusEl.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f1219;border:1px solid #f0c040;color:#f0c040;padding:12px 20px;border-radius:8px;font-family:sans-serif;font-size:13px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.5);min-width:280px;text-align:center;';
     statusEl.textContent='\u26a1 Loading inventory...';
     document.body.appendChild(statusEl);
 
     function setStatus(txt){ if(statusEl) statusEl.textContent=txt; }
 
     function fetchPage(p){
-      return fetch(BASE+'?type=mlb_card&page='+p,{credentials:'include'})
-        .then(function(r){return r.json();});
+      return fetch(BASE+'/inventory.json?type=mlb_card&page='+p,{credentials:'include'}).then(function(r){return r.json();});
     }
 
-    function done(inv){
-      setStatus('\u26a1 '+inv.length+' cards ready — opening Dupe Seller...');
+    function fetchListing(uuid){
+      return fetch(BASE+'/listing.json?uuid='+uuid,{credentials:'include'})
+        .then(function(r){return r.json();})
+        .catch(function(){return null;});
+    }
 
-      // Open the app. Pass inventory via postMessage once app signals it is ready.
+    function fetchPrices(dupes){
+      var BATCH=6;
+      var results={};
+      var batches=[];
+      for(var b=0;b<dupes.length;b+=BATCH) batches.push(dupes.slice(b,b+BATCH));
+
+      return batches.reduce(function(chain, batch, bi){
+        return chain.then(function(){
+          setStatus('\u26a1 Fetching prices '+(bi*BATCH+1)+'-'+Math.min((bi+1)*BATCH,dupes.length)+' of '+dupes.length+'...');
+          return Promise.all(batch.map(function(item){
+            return fetchListing(item.uuid).then(function(data){
+              results[item.uuid] = data;
+            });
+          }));
+        });
+      }, Promise.resolve()).then(function(){ return results; });
+    }
+
+    function send(win,payload){
+      try{ win.postMessage({type:'DS_INVENTORY', inventory:payload.inventory, prices:payload.prices}, '*'); }catch(e){}
+    }
+
+    function done(inv, prices){
+      setStatus('\u26a1 Opening Dupe Seller...');
       var appWin=window.open(APP,'dupeseller');
-
-      // Listen for the app saying "I am ready, please send inventory"
-      window.addEventListener('message', function onReady(e){
-        if(e.data && e.data.type==='DS_READY'){
-          window.removeEventListener('message', onReady);
-          appWin.postMessage({type:'DS_INVENTORY', inventory:inv},'*');
-          setStatus('\u26a1 Done! '+inv.length+' cards sent.');
-          setTimeout(function(){ if(statusEl) statusEl.remove(); }, 3000);
-        }
-      });
-
-      // Also send immediately and after delays in case DS_READY already fired
-      function tryPost(){ try{ appWin.postMessage({type:'DS_INVENTORY',inventory:inv},'*'); }catch(e){} }
-      setTimeout(tryPost, 500);
-      setTimeout(tryPost, 1500);
-      setTimeout(tryPost, 3000);
+      var payload={inventory:inv, prices:prices};
+      if(appWin){
+        send(appWin,payload);
+        setTimeout(function(){send(appWin,payload);},1000);
+        setTimeout(function(){send(appWin,payload);},2500);
+        setTimeout(function(){send(appWin,payload);},4500);
+      }
+      setTimeout(function(){ if(statusEl) statusEl.remove(); },4000);
     }
+
+    // Listen for DS_READY from the app
+    window.addEventListener('message', function onReady(e){
+      if(e.data && e.data.type==='DS_READY' && e.data.payload){
+        window.removeEventListener('message', onReady);
+        var appWin=window.open(APP,'dupeseller');
+        if(appWin) send(appWin, e.data.payload);
+      }
+    });
 
     fetchPage(1).then(function(d){
       if(!d.inventory){
-        setStatus('Not logged in!');
-        setTimeout(function(){ if(statusEl) statusEl.remove(); }, 3000);
+        setStatus('Not logged in to mlb26.theshow.com');
+        setTimeout(function(){if(statusEl)statusEl.remove();},3000);
         return;
       }
       all=all.concat(d.inventory);
       var total=d.total_pages||1;
-      setStatus('\u26a1 Fetching '+total+' pages...');
+      setStatus('\u26a1 Loading '+total+' page'+(total>1?'s':'')+'...');
+
       var pages=[];
-      for(var i=2;i<=total;i++)pages.push(i);
-      if(!pages.length){done(all);return;}
+      for(var i=2;i<=total;i++) pages.push(i);
       var batches=[];
-      for(var b=0;b<pages.length;b+=5)batches.push(pages.slice(b,b+5));
-      (function nextBatch(bi){
-        if(bi>=batches.length){done(all);return;}
-        setStatus('\u26a1 Loading page '+(batches[bi][0])+' of '+total+'...');
-        Promise.all(batches[bi].map(fetchPage)).then(function(results){
-          results.forEach(function(r){if(r&&r.inventory)all=all.concat(r.inventory);});
-          nextBatch(bi+1);
+      for(var b=0;b<pages.length;b+=5) batches.push(pages.slice(b,b+5));
+
+      return batches.reduce(function(chain,batch,bi){
+        return chain.then(function(){
+          setStatus('\u26a1 Loading inventory page '+(bi*5+2)+' of '+total+'...');
+          return Promise.all(batch.map(fetchPage)).then(function(results){
+            results.forEach(function(r){if(r&&r.inventory)all=all.concat(r.inventory);});
+          });
         });
-      })(0);
+      }, Promise.resolve());
+    }).then(function(){
+      if(!all.length) return;
+      // Find dupes
+      var dupes=all.filter(function(i){return i.quantity && parseInt(i.quantity)>1;});
+      setStatus('\u26a1 Found '+dupes.length+' dupes — fetching prices...');
+
+      return fetchPrices(dupes).then(function(prices){
+        // Attach QS values from OVR-based lookup
+        all.forEach(function(item){
+          item.qs_value = getQSValue(item.rarity, item.ovr);
+        });
+        done(all, prices);
+      });
     }).catch(function(e){
       setStatus('Error: '+e.message);
-      setTimeout(function(){ if(statusEl) statusEl.remove(); }, 5000);
+      setTimeout(function(){if(statusEl)statusEl.remove();},5000);
     });
   })()`;
 
@@ -1080,11 +1154,12 @@
   window.addEventListener('focus', announceReady);
   window.addEventListener('pageshow', announceReady);
 
-  // Receive inventory from the bookmarklet
+  // Receive inventory + prices from the bookmarklet
   window.addEventListener('message', (e) => {
     if (!_inventoryReceived && e.data && e.data.type === 'DS_INVENTORY' && Array.isArray(e.data.inventory)) {
       _inventoryReceived = true;
       inventory = e.data.inventory;
+      priceMap = e.data.prices || {};
       onInventoryLoaded();
     }
   });
@@ -1100,14 +1175,15 @@
   }
 
   function onInventoryLoaded() {
-    setStatus(true, `${inventory.length} CARDS LOADED`);
+    const priceCount = Object.keys(priceMap).length;
+    const dupeCount = inventory.filter(i => i.quantity && parseInt(i.quantity) > 1).length;
+    setStatus(true, `${inventory.length} CARDS · ${dupeCount} DUPES · ${priceCount} PRICES LOADED`);
     document.getElementById('bookmarkletCard').classList.add('has-data');
     document.getElementById('scanSection').style.display = 'block';
     document.getElementById('idleState').style.display = 'none';
     document.getElementById('scanBtnSub').textContent =
-      `${inventory.length} CARDS LOADED · CLICK TO SCAN`;
-    showToast(`${inventory.length} cards loaded!`, 'success');
-    // Switch to dupes tab if not already there
+      `${inventory.length} CARDS · ${dupeCount} DUPES · ${priceCount} PRICES — CLICK TO SCAN`;
+    showToast(`${inventory.length} cards + ${priceCount} prices loaded!`, 'success');
     switchTab('dupes');
   }
 
@@ -1222,30 +1298,14 @@
       return;
     }
 
-    setProgress(true, `FETCHING PRICES FOR ${dupes.length} CARDS...`, 5);
     document.getElementById('scanBtn').disabled = true;
     clearError();
+    setProgress(true, `PROCESSING ${dupes.length} DUPLICATE CARDS...`, 50);
+    // Prices were already fetched by the bookmarklet and stored in priceMap
+    // No additional API calls needed from the app
 
-    // Fetch prices for all dupes
-    const priceMap = {};
-    const BATCH = 6;
-
-    for (let i = 0; i < dupes.length; i += BATCH) {
-      const chunk = dupes.slice(i, i + BATCH);
-      const results = await Promise.all(
-        chunk.map(item =>
-          fetch(`https://mlb26.theshow.com/apis/listing.json?uuid=${item.uuid}`, { credentials: 'include' })
-            .then(r => r.json())
-            .catch(() => null)
-        )
-      );
-      chunk.forEach((item, idx) => { priceMap[item.uuid] = results[idx]; });
-      const pct = Math.round(((i + BATCH) / dupes.length) * 100);
-      setProgress(true, `FETCHING PRICES... ${Math.min(i + BATCH, dupes.length)}/${dupes.length}`, pct);
-    }
-
-    // Build and sort by best achievable price
-    const withPrices = dupes.map(d => ({ ...d, _listing: priceMap[d.uuid] }));
+    // Build and sort by best achievable price (prices already in priceMap from bookmarklet)
+    const withPrices = dupes.map(d => ({ ...d }));
     withPrices.sort((a, b) => {
       const pa = getBestStrategy(a).price;
       const pb = getBestStrategy(b).price;
@@ -1585,38 +1645,67 @@
 
   // ── Helpers ────────────────────────────────────────────────────────
 
-  // Returns the lowest active sell price from the listing API response.
-  // best_sell_price = the lowest price currently listed (what we undercut by 1).
+  // Returns the lowest active sell price (best_sell_price from listing API)
   function getLowestSellPrice(listing) {
-    if (!listing || listing.error) return null;
-    // The listing API returns best_sell_price as the lowest active sell order
-    const raw = listing.best_sell_price ?? listing.listing?.best_sell_price;
-    if (raw === '-' || raw == null) return null;
+    if (!listing) return null;
+    const raw = listing.best_sell_price;
+    if (raw == null || raw === '-' || raw === 0) return null;
     const n = parseInt(raw, 10);
-    return isNaN(n) ? null : n;
+    return isNaN(n) || n === 0 ? null : n;
   }
 
-  // Returns the best buy price (what you'd get for an instant sell / quick sell via market)
+  // Returns the best buy price (highest active buy order = instant sell value)
   function getBestBuyPrice(listing) {
-    if (!listing || listing.error) return null;
-    const raw = listing.best_buy_price ?? listing.listing?.best_buy_price;
-    if (raw === '-' || raw == null) return null;
+    if (!listing) return null;
+    const raw = listing.best_buy_price;
+    if (raw == null || raw === '-' || raw === 0) return null;
     const n = parseInt(raw, 10);
-    return isNaN(n) ? null : n;
+    return isNaN(n) || n === 0 ? null : n;
   }
 
-  // Quick sell value comes from the item itself (in inventory response)
+  // Get listing for an item from the priceMap (populated by bookmarklet)
+  function getListingForItem(item) {
+    return priceMap[item.uuid] || null;
+  }
+
+  // Quick sell value by OVR (MLB 26 values confirmed by user)
   function getQuickSellValue(item) {
-    const v = item.quick_sell_value ?? item.quickSellValue ?? item.qs_value ?? null;
-    if (v == null) return null;
-    const n = parseInt(v, 10);
-    return isNaN(n) ? null : n;
+    if (item.qs_value) return parseInt(item.qs_value, 10);
+    // Fallback: derive from rarity + ovr if bookmarklet didn't set it
+    const r = (item.rarity || '').toLowerCase();
+    const o = parseInt(item.ovr) || 0;
+    if (r === 'common')  return 5;
+    if (r === 'bronze')  return 25;
+    if (r === 'silver') {
+      if (o <= 75) return 50;
+      if (o === 76) return 75;
+      if (o === 77) return 100;
+      if (o === 78) return 125;
+      return 150;
+    }
+    if (r === 'gold') {
+      if (o <= 80) return 400;
+      if (o === 81) return 600;
+      if (o === 82) return 900;
+      if (o === 83) return 1200;
+      return 1500;
+    }
+    if (r === 'diamond' || r === 'red diamond') {
+      if (o <= 85) return 3000;
+      if (o === 86) return 3750;
+      if (o === 87) return 4500;
+      if (o === 88) return 5500;
+      if (o === 89) return 7000;
+      if (o === 90) return 8000;
+      return 9000;
+    }
+    return 5;
   }
 
   // Determine best sell strategy for a card.
   // Returns { strategy: 'market'|'quicksell'|'none', price, targetPrice, quickSell, lowestSell, label }
   function getBestStrategy(item) {
-    const listing = item._listing;
+    const listing = getListingForItem(item);
     const lowestSell = getLowestSellPrice(listing);
     const bestBuy   = getBestBuyPrice(listing);
     const quickSell = getQuickSellValue(item);
