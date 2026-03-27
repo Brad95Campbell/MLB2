@@ -695,46 +695,112 @@
 
     .toast.success { border-color: rgba(61,204,110,0.5); color: var(--green); }
 
-    /* ── Price strategy tags ── */
-    .price-tag {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 8px;
-      letter-spacing: 1.5px;
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-weight: 500;
-      margin-top: 1px;
+    /* ── Card layout ── */
+    .card-item {
+      padding: 0 !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 0 !important;
     }
 
-    .market-tag {
-      background: rgba(61, 204, 110, 0.12);
-      color: var(--green);
-      border: 1px solid rgba(61, 204, 110, 0.3);
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px 8px;
     }
 
-    .qs-tag {
-      background: rgba(61, 155, 224, 0.12);
-      color: var(--accent2);
-      border: 1px solid rgba(61, 155, 224, 0.3);
-    }
-
-    .price-compare {
+    .card-qty-inline {
       font-family: 'JetBrains Mono', monospace;
       font-size: 9px;
+      color: var(--accent);
+      margin-left: auto;
+    }
+
+    /* ── Price rows ── */
+    .price-rows {
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .price-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 14px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.12s;
+    }
+
+    .price-row:last-child { border-bottom: none; }
+
+    .price-row-best {
+      background: rgba(61, 204, 110, 0.06);
+    }
+
+    .price-row-best .price-row-label::after {
+      content: ' ★';
+      color: var(--green);
+      font-size: 10px;
+    }
+
+    .price-row-none { opacity: 0.45; }
+
+    .price-row-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 1px;
       color: var(--muted);
-      margin-top: 1px;
-      text-decoration: line-through;
+      text-transform: uppercase;
+      width: 80px;
+      flex-shrink: 0;
+    }
+
+    .tax-note {
+      font-size: 8px;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--muted);
       opacity: 0.7;
     }
 
-    .qs-price { color: var(--accent2) !important; }
-
-    .sell-btn.qs-btn {
-      background: var(--accent2);
-      color: #fff;
-      font-size: 11px;
-      padding: 5px 8px;
+    .price-row-value {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      flex: 1;
+      line-height: 1;
     }
+
+    .price-row-best .price-row-value { color: var(--green); }
+    .qs-val { color: var(--accent2); }
+    .price-row-best .qs-val { color: var(--green); }
+    .muted { color: var(--muted) !important; font-size: 12px !important; font-family: 'JetBrains Mono', monospace; }
+
+    /* ── Action buttons ── */
+    .action-btn {
+      border: none;
+      border-radius: 5px;
+      padding: 5px 12px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .action-btn:hover { opacity: 0.85; }
+    .action-btn:active { transform: scale(0.96); }
+    .action-btn.done { background: var(--surface3); color: var(--muted); cursor: default; }
+    .action-btn.done:hover { opacity: 1; }
+
+    .mkt-btn { background: var(--green); color: #000; }
+    .qs-btn  { background: var(--accent2); color: #fff; }
 
     /* ── Mobile tweaks ── */
     @media (max-width: 480px) {
@@ -1307,8 +1373,8 @@
     // Build and sort by best achievable price (prices already in priceMap from bookmarklet)
     const withPrices = dupes.map(d => ({ ...d }));
     withPrices.sort((a, b) => {
-      const pa = getBestStrategy(a).price;
-      const pb = getBestStrategy(b).price;
+      const pa = getBestValue(a);
+      const pb = getBestValue(b);
       if (pa === null && pb === null) return 0;
       if (pa === null) return 1;
       if (pb === null) return -1;
@@ -1366,7 +1432,7 @@
     const soldUUIDs = new Set(history.map(h => h.uuid));
 
     filtered.forEach((item, idx) => {
-      const strat = getBestStrategy(item);
+      const s = getBestStrategy(item);
       const extraCopies = (item.quantity || 2) - 1;
       const img = item.baked_img || item.img || '';
       const alreadySold = soldUUIDs.has(item.uuid);
@@ -1375,64 +1441,69 @@
       card.className = 'card-item';
       card.style.animationDelay = `${idx * 30}ms`;
 
-      // Build price comparison display
-      let priceDisplay = '';
-      if (strat.strategy === 'none') {
-        priceDisplay = `<div class="sell-price no-price">No data</div>`;
-      } else if (strat.strategy === 'market') {
-        priceDisplay = `
-          <div class="sell-price">${fmt(strat.targetPrice)}</div>
-          <div class="price-tag market-tag">MARKET</div>
-          ${strat.quickSell ? `<div class="price-compare">QS: ${fmt(strat.quickSell)}</div>` : ''}
-        `;
-      } else {
-        priceDisplay = `
-          <div class="sell-price qs-price">${fmt(strat.quickSell)}</div>
-          <div class="price-tag qs-tag">QUICK SELL</div>
-          ${strat.targetPrice ? `<div class="price-compare">MKT: ${fmt(strat.targetPrice)}</div>` : ''}
-        `;
-      }
+      // ── Price rows ──
+      // Market row
+      const mktRow = s.listPrice !== null
+        ? `<div class="price-row ${s.recommended === 'market' ? 'price-row-best' : ''}">
+             <div class="price-row-label">MARKET <span class="tax-note">(after 10% tax)</span></div>
+             <div class="price-row-value">${fmt(s.netMarket)}</div>
+             <button class="action-btn mkt-btn" title="List on market at ${fmt(s.listPrice)} stubs"
+               data-uuid="${item.uuid}" data-price="${s.listPrice}" data-qty="${extraCopies}" data-name="${escHtml(item.name||'')}">
+               LIST${extraCopies > 1 ? ' ×'+extraCopies : ''}
+             </button>
+           </div>`
+        : `<div class="price-row price-row-none">
+             <div class="price-row-label">MARKET</div>
+             <div class="price-row-value muted">No listing</div>
+           </div>`;
 
-      // Build button
-      let btnHtml = '';
-      if (strat.strategy === 'none') {
-        btnHtml = `<button class="sell-btn disabled" disabled>NO DATA</button>`;
-      } else if (alreadySold) {
-        btnHtml = `<button class="sell-btn sold">✓ LISTED</button>`;
-      } else if (strat.strategy === 'market') {
-        btnHtml = `<button class="sell-btn">SELL ×${extraCopies}</button>`;
-      } else {
-        btnHtml = `<button class="sell-btn qs-btn">QUICK SELL ×${extraCopies}</button>`;
-      }
+      // Quick sell row
+      const qsRow = `<div class="price-row ${s.recommended === 'quicksell' ? 'price-row-best' : ''}">
+             <div class="price-row-label">QUICK SELL</div>
+             <div class="price-row-value qs-val">${fmt(s.qsValue)}</div>
+             <button class="action-btn qs-btn"
+               data-uuid="${item.uuid}" data-qs="1" data-name="${escHtml(item.name||'')}">
+               QS${extraCopies > 1 ? ' ×'+extraCopies : ''}
+             </button>
+           </div>`;
 
       card.innerHTML = `
-        <div class="card-rank">${idx + 1}</div>
-        <div class="card-img">
-          ${img ? `<img src="${img}" alt="" loading="lazy"/>` : '⚾'}
-        </div>
-        <div class="card-body">
-          <div class="card-name">${item.name || 'Unknown'}</div>
-          <div class="card-meta">
-            <div class="rarity-pip ${pipClass(item.rarity)}"></div>
-            <div class="card-team">${item.team || '—'}</div>
-            ${item.ovr ? `<div class="card-ovr">${item.ovr}</div>` : ''}
+        <div class="card-top">
+          <div class="card-rank">${idx + 1}</div>
+          <div class="card-img">
+            ${img ? `<img src="${img}" alt="" loading="lazy"/>` : '⚾'}
+          </div>
+          <div class="card-body">
+            <div class="card-name">${item.name || 'Unknown'}</div>
+            <div class="card-meta">
+              <div class="rarity-pip ${pipClass(item.rarity)}"></div>
+              <div class="card-team">${item.team || '—'} · OVR ${item.ovr || '?'}</div>
+              <div class="card-qty-inline">×${item.quantity} owned</div>
+            </div>
           </div>
         </div>
-        <div class="card-right">
-          ${priceDisplay}
-          ${btnHtml}
-          <div class="card-qty">×${item.quantity} owned</div>
+        <div class="price-rows">
+          ${mktRow}
+          ${qsRow}
         </div>
       `;
 
-      const btn = card.querySelector('.sell-btn:not(.disabled):not(.sold)');
-      if (btn) {
-        if (strat.strategy === 'market') {
-          btn.addEventListener('click', () => onSell(item, strat.targetPrice, extraCopies, btn));
-        } else {
-          // Quick sell — open item page, user manually quick sells there
-          btn.addEventListener('click', () => onQuickSell(item, strat.quickSell, extraCopies, btn));
-        }
+      // Market button
+      const mktBtn = card.querySelector('.mkt-btn');
+      if (mktBtn) {
+        mktBtn.addEventListener('click', () => {
+          if (alreadySold) return;
+          onSell(item, s.listPrice, extraCopies, mktBtn);
+        });
+        if (alreadySold) { mktBtn.textContent = '✓ LISTED'; mktBtn.classList.add('done'); }
+      }
+
+      // QS button
+      const qsBtn = card.querySelector('.qs-btn');
+      if (qsBtn) {
+        qsBtn.addEventListener('click', () => {
+          onQuickSell(item, s.qsValue, extraCopies, qsBtn);
+        });
       }
 
       cardList.appendChild(card);
@@ -1444,14 +1515,17 @@
   // ── Sell ───────────────────────────────────────────────────────────
   function onSell(item, price, qty, btn) {
     // Save to history
+    const strat = getBestStrategy(item);
     const entry = {
       uuid: item.uuid,
       name: item.name,
       rarity: item.rarity,
       ovr: item.ovr,
       img: item.baked_img || item.img || '',
-      price,
+      price,          // list price (pre-tax)
+      netPrice: strat.netMarket, // after 10% tax
       qty,
+      method: 'market',
       ts: Date.now()
     };
 
@@ -1703,44 +1777,41 @@
   }
 
   // Determine best sell strategy for a card.
-  // Returns { strategy: 'market'|'quicksell'|'none', price, targetPrice, quickSell, lowestSell, label }
+  // listPrice  = price to list at (lowest sell - 1)
+  // netMarket  = listPrice after 10% tax = what you actually receive
+  // qsValue    = quick sell value (no tax, instant)
+  // recommended = whichever of netMarket vs qsValue is higher
   function getBestStrategy(item) {
-    const listing = getListingForItem(item);
+    const listing   = getListingForItem(item);
     const lowestSell = getLowestSellPrice(listing);
-    const bestBuy   = getBestBuyPrice(listing);
-    const quickSell = getQuickSellValue(item);
+    const qsValue    = getQuickSellValue(item);
 
-    // Market sell target = lowest sell price - 1 (undercut by 1 stub)
-    const marketTarget = lowestSell !== null ? Math.max(1, lowestSell - 1) : null;
+    const listPrice  = lowestSell !== null ? Math.max(1, lowestSell - 1) : null;
+    const netMarket  = listPrice !== null ? Math.floor(listPrice * 0.9) : null;
 
-    // Quick sell is the guaranteed floor — either the item's qs value or the best buy price
-    // Use whichever is higher
-    const qsValue = Math.max(quickSell || 0, bestBuy || 0) || null;
+    const hasMarket  = netMarket !== null;
+    const hasQS      = qsValue !== null;
 
-    if (marketTarget === null && qsValue === null) {
-      return { strategy: 'none', price: null, targetPrice: null, quickSell: null, lowestSell: null, label: 'No price data' };
+    if (!hasMarket && !hasQS) {
+      return { recommended: 'none', listPrice: null, netMarket: null, qsValue: null };
     }
 
-    if (marketTarget === null) {
-      return { strategy: 'quicksell', price: qsValue, targetPrice: null, quickSell: qsValue, lowestSell: null, label: 'QUICK SELL' };
-    }
+    let recommended;
+    if (!hasMarket) recommended = 'quicksell';
+    else if (!hasQS) recommended = 'market';
+    else recommended = netMarket >= qsValue ? 'market' : 'quicksell';
 
-    if (qsValue === null) {
-      return { strategy: 'market', price: marketTarget, targetPrice: marketTarget, quickSell: null, lowestSell, label: 'LIST ON MARKET' };
-    }
-
-    // Both available — compare. Add a small threshold: only recommend market if it's meaningfully better
-    // (at least 10% more than quick sell, accounting for the hassle of listing)
-    if (marketTarget > qsValue * 1.1) {
-      return { strategy: 'market', price: marketTarget, targetPrice: marketTarget, quickSell: qsValue, lowestSell, label: 'LIST ON MARKET' };
-    } else {
-      return { strategy: 'quicksell', price: qsValue, targetPrice: marketTarget, quickSell: qsValue, lowestSell, label: 'QUICK SELL' };
-    }
+    return { recommended, listPrice, netMarket, qsValue };
   }
 
-  // Keep getSellPrice for legacy use in sort
-  function getSellPrice(listing) {
-    return getLowestSellPrice(listing);
+  // Used for sort
+  function getBestValue(item) {
+    const s = getBestStrategy(item);
+    return Math.max(s.netMarket || 0, s.qsValue || 0) || null;
+  }
+
+  function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   function fmt(n) {
